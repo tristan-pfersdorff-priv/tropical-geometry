@@ -59,3 +59,35 @@ noncomputable def valency (v : V G) : ℕ :=
   Nat.card (OutgoingLedges v)
 
 end SerreGraphDefs
+
+structure Hom (G H : SerreGraph) where
+  toFun : G.X → H.X
+  root_comm : toFun ∘ G.root = H.root ∘ toFun
+  flip_comm : toFun ∘ G.flip = H.flip ∘ toFun
+
+instance {G H : SerreGraph} : FunLike (Hom G H) G.X H.X where
+  coe f := f.toFun
+  coe_injective f g h := by
+    cases f
+    cases g
+    simp_all
+
+def Hom.id (G : SerreGraph) : Hom G G where
+  toFun := fun x : G.X => x
+  root_comm := by rfl
+  flip_comm := by rfl
+
+def Hom.comp {G H K : SerreGraph} (f : Hom G H) (g : Hom H K) : Hom G K where
+  toFun := g.toFun ∘ f.toFun
+  root_comm := by
+    rw [Function.comp_assoc]
+    rw [f.root_comm]
+    rw [← Function.comp_assoc]
+    rw [g.root_comm]
+    rw [Function.comp_assoc]
+  flip_comm := by
+    rw [Function.comp_assoc]
+    rw [f.flip_comm]
+    rw [← Function.comp_assoc]
+    rw [g.flip_comm]
+    rw [Function.comp_assoc]

@@ -1,28 +1,61 @@
 import Mathlib
 
---open Finset
-
 structure SerreGraph where
+
+  -- The ambient set in question, but doing things as a type is likely easier
   X : Type*
+  -- I like to assume my graphs are finite since infinite ones are pointless for tropical stuff
+  finite : Fintype X
+  -- I also like to disallow the empty graph
+  nonempty: Inhabited X
+  -- This might be useful in the future, but we shall see
+  dec_eq : DecidableEq X
+
+  -- The usual Serre stuff
   root : X → X
   flip : X → X
   root_idem : root ∘ root = root
   flip_invo : flip ∘ flip = id
   flip_root : flip ∘ root = root
-  [finite : Fintype X]
-  [nonempty: Inhabited X]
 
-namespace SerreGraph
 
-variable {G H : SerreGraph}
+/- This somehow helps lean understand that sybtypes of G.X are finite,
+  i.e. that Finite Y checks out for any sybtype Y of G.X .
+  However, lean is much more strict on labeling things as Fintype;
+  Difference being that lean demands proofs of finiteness for that
+  and does not like to provide them automatically as a design choice,
+  which is why a lot of stuff will be marked noncomputable as soon as
+  we try to do stuff that needs to know the underlying finite sets,
+  like taking valencies.
+-/
+instance (G : SerreGraph) : Fintype G.X := G.finite
+instance (G : SerreGraph) : Inhabited G.X := G.nonempty
+instance (G : SerreGraph) : DecidableEq G.X := G.dec_eq
+
+namespace SerreGraphDefs
+
+variable {G : SerreGraph}
 
 def IsVertex (v : G.X) : Prop :=
-  v ∈ Set.range G.root
-
+  G.root v = v
 def IsEdge (e : G.X) : Prop :=
   G.flip e ≠ e
-
 def IsLeg (l : G.X) : Prop :=
-  ¬IsVertex l ∧ ¬IsEdge l
+  G.root l ≠ l ∧ G.flip l = l
 
-end SerreGraph
+abbrev V (G : SerreGraph) : Type* :=
+  {v : G.X  // IsVertex v}
+abbrev E (G : SerreGraph) : Type* :=
+  {e : G.X // IsEdge e}
+abbrev L (G : SerreGraph) : Type* :=
+  {l : G.X // IsLeg l}
+abbrev LE (G : SerreGraph) : Type* :=
+  {a : G.X // IsEdge a ∨ IsLeg a}
+
+abbrev OutgoingLedges (v : V G) :=
+  {a : LE G // G.root a.val = v.val}
+
+noncomputable def valency (v : V G) : ℕ :=
+  Nat.card (OutgoingLedges v)
+
+end SerreGraphDefs

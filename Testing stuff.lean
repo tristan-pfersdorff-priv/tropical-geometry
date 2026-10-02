@@ -8,8 +8,6 @@ structure SerreGraph where
   finite : Finite X
   -- I also like to disallow the empty graph
   nonempty: Inhabited X
-  -- This might be useful in the future, but we shall see
-  -- dec_eq : DecidableEq X
 
   -- The usual Serre stuff
   root : X → X
@@ -17,7 +15,6 @@ structure SerreGraph where
   root_idem : root ∘ root = root
   flip_invo : flip ∘ flip = id
   flip_root : flip ∘ root = root
-  -- TODO: introduce this, and restrict the def of contractions to not create loops
   -- no_loops : ∀ x, root (flip x) = root x → flip x = x
 
 /- This somehow helps lean understand that sybtypes of G.X are finite,
@@ -30,11 +27,17 @@ structure SerreGraph where
   like taking valencies.
 -/
 instance (G : SerreGraph) : Inhabited G.X := G.nonempty
---instance (G : SerreGraph) : DecidableEq G.X := G.dec_eq
 
 namespace SerreGraph
 
 variable {G : SerreGraph}
+
+def Loopless (G : SerreGraph) : Prop :=
+  ∀ x, G.root (G.flip x) = G.root x → G.flip x = x
+
+-- TODO
+-- prove lemma that loopless is equivalent to the condition that the root of a flip is
+-- not equal to the root of the original element unless they are equal, since this may be useful
 
 def IsVertex (v : G.X) : Prop :=
   ∃ a : G.X, G.root a = v
@@ -67,6 +70,12 @@ lemma flip_ne_flip (x : G.X) (hx : G.flip x ≠ x) :
 def flipEdge (e : G.E) : G.E :=
   ⟨G.flip e.val, flip_ne_flip e.val e.property⟩
 
+lemma flipEdge_invo (e : G.E) :
+    G.flipEdge (G.flipEdge e) = e := by
+  apply Subtype.ext
+  change G.flip (G.flip e.val) = e.val
+  change (G.flip ∘ G.flip) e.val = e.val
+  rw [G.flip_invo, id_eq]
 
 abbrev OutgoingLedges (v : V G) :=
   {a : LE G // G.root a.val = v.val}
@@ -90,17 +99,51 @@ noncomputable def genus (G : SerreGraph) : ℤ :=
   (nedges G : ℤ) - (nvertices G : ℤ) + 1
 
 
-inductive AreConnected {G : SerreGraph} : V G → V G → Prop
-  | refl (v : V G) :
-      AreConnected v v
-  | edge (v : V G) (e : E G) :
-      AreConnected v (G.rootVertex e) →
-      AreConnected v (G.rootVertex (G.flipEdge e))
+def Adjacent {G : SerreGraph} (u v : V G) : Prop :=
+  ∃ e : E G,
+    u = G.rootVertex e ∧
+    v = G.rootVertex (G.flipEdge e)
+
+instance adjacent_stdSymm : Std.Symm (@Adjacent G) where
+  symm := by
+    intro u v h
+    rcases h with ⟨e, rfl, rfl⟩
+    refine ⟨G.flipEdge e, rfl, ?_⟩
+    rw [flipEdge_invo]
+
+def AreConnected {G : SerreGraph} (u v : V G) : Prop :=
+  Relation.ReflTransGen (@Adjacent G) u v
+
+lemma neighbors_adjacent (e : E G) :
+    Adjacent (G.rootVertex e) (G.rootVertex (G.flipEdge e)) := by
+  exact ⟨e, rfl, rfl⟩
+
+lemma connected_refl (v : G.V) :
+    AreConnected v v := by
+  exact Relation.ReflTransGen.refl
+
+lemma connected_symm {u v : G.V} :
+    AreConnected u v → AreConnected v u := by
+  intro h
+  exact Relation.ReflTransGen.stdSymm.symm u v h
+
+lemma connected_trans {u v w : G.V} :
+    AreConnected u v →
+    AreConnected v w →
+    AreConnected u w :=
+  Relation.ReflTransGen.trans
+
+theorem connectedEquivalence (G : SerreGraph) :
+    Equivalence (@AreConnected G) where
+  refl := connected_refl
+  symm := connected_symm
+  trans := connected_trans
+
+def Connected (G : SerreGraph) : Prop :=
+  ∀ u v : G.V, AreConnected u v
 
 -- TODO
--- prove that AreConnected is an equivalence relation
--- prove that genus is nonnegative for connected graphs
-
+-- update genus definition for disconnected graphs maybe, though idk if we need this
 
 
 -- time to define morphisms of Serre graphs, which are just map that commute with root and flip
@@ -254,7 +297,6 @@ def contractGraph (e : G.E) : SerreGraph where
     apply Finite.of_surjective (Quotient.mk (ContractSetoid e))
     exact Quotient.mk_surjective
   nonempty := ⟨Quotient.mk (ContractSetoid e) default⟩
-  -- DecidableEq := Classical.decEq (ContractX e)
   root := ContractRoot e
   flip := ContractFlip e
   root_idem := ContractRoot_idem e

@@ -47,6 +47,16 @@ def IsEdge (e : G.X) : Prop :=
 def IsLeg (l : G.X) : Prop :=
   G.root l ≠ l ∧ G.flip l = l
 
+lemma IsVertex_iff (v : G.X) :
+    IsVertex v ↔ G.root v = v := by
+  constructor
+  · intro h
+    rcases h with ⟨a, ha⟩
+    rw [← ha]
+    exact congrFun G.root_idem a
+  · intro h
+    use v
+
 abbrev V (G : SerreGraph) : Type* :=
   {v : G.X  // IsVertex v}
 abbrev E (G : SerreGraph) : Type* :=
@@ -180,6 +190,63 @@ def Hom.comp {G H K : SerreGraph} (f : Hom G H) (g : Hom H K) : Hom G K where
     rw [g.flip_comm]
     rw [Function.comp_assoc]
 
+def IsIso {G H : SerreGraph} (f : Hom G H) : Prop :=
+  ∃ g : Hom H G,
+    g.toFun ∘ f.toFun = id ∧
+    f.toFun ∘ g.toFun = id
+
+structure Iso (G H : SerreGraph) where
+  hom : Hom G H
+  isIso : IsIso hom
+
+@[ext]
+lemma Iso.ext {f g : Iso G H}
+    (h : f.hom = g.hom) : f = g := by
+  cases f
+  cases g
+  simp_all
+
+noncomputable def Iso.inv (f : Iso G H) : Hom H G :=
+  Classical.choose f.isIso
+
+lemma Iso.left_inv (f : Iso G H) :
+    f.inv.toFun ∘ f.hom.toFun = id :=
+  (Classical.choose_spec f.isIso).1
+
+lemma Iso.right_inv (f : Iso G H) :
+    f.hom.toFun ∘ f.inv.toFun = id :=
+  (Classical.choose_spec f.isIso).2
+
+-- define fibers
+-- maybe allow the empty graph
+def fiber (f : Hom G H) (v : H.V) : SerreGraph where
+  X := {a : G.X // f a = v}
+  finite := by
+    let := G.finite
+    apply Finite.of_injective fun x => x.val
+    sorry
+  nonempty := by sorry
+  root := fun x => ⟨G.root x, by
+    change (f.toFun ∘ G.root) x = v
+    rw [f.root_comm]
+    change H.root (f.toFun x) = v
+    change H.root (f x) = v
+    rw [x.property]
+    rw [←IsVertex_iff v.val]
+    exact v.property
+  ⟩
+  flip := fun x => ⟨G.flip x, by
+    change (f.toFun ∘ G.flip) x = v
+    rw [f.flip_comm]
+    change H.flip (f.toFun x) = v
+    change H.flip (f x) = v
+    -- idea: insert root and use flip_root, maybe this should be a lemma
+    sorry
+  ⟩
+  root_idem := by sorry
+  flip_invo := by sorry
+  flip_root := by sorry
+
 -- Now for defining contractions
 
 def ContractGen (e : G.E) : G.X → G.X → Prop :=
@@ -303,6 +370,30 @@ def contractGraph (e : G.E) : SerreGraph where
   flip_invo := ContractFlip_invo e
   flip_root := ContractFlip_root e
 
-abbrev edgeContraction (e : G.E) := Quotient.mk (ContractSetoid e)
+-- maybe abbrev is better than def here, but we will see
+def edgeContraction (e : G.E) := Quotient.mk (ContractSetoid e)
+
+def edgeContractionHom (e : G.E) : Hom G (G.contractGraph e) where
+  toFun := edgeContraction e
+  root_comm := by
+    funext x
+    change ContractRoot e (Quotient.mk (ContractSetoid e) x) =
+      Quotient.mk (ContractSetoid e) (G.root x)
+    rw [ContractRoot_mk]
+  flip_comm := by
+    funext x
+    change ContractFlip e (Quotient.mk (ContractSetoid e) x) =
+      Quotient.mk (ContractSetoid e) (G.flip x)
+    rw [ContractFlip_mk]
+
+inductive IsContraction : {G H : SerreGraph} → Hom G H → Prop where
+  | iso {G H : SerreGraph} (f : Hom G H) :
+      IsIso f →
+      IsContraction f
+  | contract {G H : SerreGraph}
+      (e : G.E)
+      (g : Hom (contractGraph e) H) :
+      IsContraction g →
+      IsContraction ((edgeContractionHom e).comp g)
 
 end SerreGraph

@@ -6,8 +6,8 @@ structure SerreGraph where
   X : Type*
   -- I like to assume my graphs are finite since infinite ones are pointless for tropical stuff
   finite : Finite X
-  -- I also like to disallow the empty graph
-  nonempty: Inhabited X
+  -- I also like to disallow the empty graph, but fibers may be empty, so we will allow this
+  -- nonempty: Inhabited X
 
   -- The usual Serre stuff
   root : X → X
@@ -26,7 +26,7 @@ structure SerreGraph where
   we try to do stuff that needs to know the underlying finite sets,
   like taking valencies.
 -/
-instance (G : SerreGraph) : Inhabited G.X := G.nonempty
+--instance (G : SerreGraph) : Inhabited G.X := G.nonempty
 
 namespace SerreGraph
 
@@ -86,6 +86,19 @@ lemma flipEdge_invo (e : G.E) :
   change G.flip (G.flip e.val) = e.val
   change (G.flip ∘ G.flip) e.val = e.val
   rw [G.flip_invo, id_eq]
+
+-- we prove this by inserting root into flip v and using flip_root
+lemma flip_eq_self_of_isVertex (v : G.V) :
+    G.flip v.val = v.val := by
+  have hv : G.root v.val = v.val := by
+    rw [← IsVertex_iff]
+    exact v.property
+  calc
+    G.flip v.val = G.flip (G.root v.val) := by rw [hv]
+    _ = G.root v.val := by
+      change (G.flip ∘ G.root) v.val = G.root v.val
+      rw [G.flip_root]
+    _ = v.val := hv
 
 abbrev OutgoingLedges (v : V G) :=
   {a : LE G // G.root a.val = v.val}
@@ -217,15 +230,11 @@ lemma Iso.right_inv (f : Iso G H) :
     f.hom.toFun ∘ f.inv.toFun = id :=
   (Classical.choose_spec f.isIso).2
 
--- define fibers
--- maybe allow the empty graph
 def fiber (f : Hom G H) (v : H.V) : SerreGraph where
   X := {a : G.X // f a = v}
   finite := by
     let := G.finite
-    apply Finite.of_injective fun x => x.val
-    sorry
-  nonempty := by sorry
+    infer_instance
   root := fun x => ⟨G.root x, by
     change (f.toFun ∘ G.root) x = v
     rw [f.root_comm]
@@ -240,12 +249,23 @@ def fiber (f : Hom G H) (v : H.V) : SerreGraph where
     rw [f.flip_comm]
     change H.flip (f.toFun x) = v
     change H.flip (f x) = v
-    -- idea: insert root and use flip_root, maybe this should be a lemma
-    sorry
+    rw [x.property]
+    exact flip_eq_self_of_isVertex v
   ⟩
-  root_idem := by sorry
-  flip_invo := by sorry
-  flip_root := by sorry
+  root_idem := by
+    funext x
+    apply Subtype.ext
+    exact congrFun G.root_idem x.val
+  flip_invo := by
+    funext x
+    apply Subtype.ext
+    change G.flip (G.flip x.val) = x.val
+    exact congrFun G.flip_invo x.val
+  flip_root := by
+    funext x
+    apply Subtype.ext
+    change G.flip (G.root x.val) = G.root x.val
+    exact congrFun G.flip_root x.val
 
 -- Now for defining contractions
 
@@ -363,7 +383,7 @@ def contractGraph (e : G.E) : SerreGraph where
     let := G.finite
     apply Finite.of_surjective (Quotient.mk (ContractSetoid e))
     exact Quotient.mk_surjective
-  nonempty := ⟨Quotient.mk (ContractSetoid e) default⟩
+  --nonempty := ⟨Quotient.mk (ContractSetoid e) default⟩
   root := ContractRoot e
   flip := ContractFlip e
   root_idem := ContractRoot_idem e

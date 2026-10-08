@@ -30,7 +30,7 @@ structure SerreGraph where
 
 namespace SerreGraph
 
-variable {G : SerreGraph}
+variable {G H : SerreGraph}
 
 def Loopless (G : SerreGraph) : Prop :=
   ∀ x, G.root (G.flip x) = G.root x → G.flip x = x
@@ -57,17 +57,22 @@ lemma IsVertex_iff (v : G.X) :
   · intro h
     use v
 
-abbrev V (G : SerreGraph) : Type* :=
+abbrev Vertex (G : SerreGraph) : Type* :=
   {v : G.X  // IsVertex v}
-abbrev E (G : SerreGraph) : Type* :=
+abbrev Edge (G : SerreGraph) : Type* :=
   {e : G.X // IsEdge e}
-abbrev L (G : SerreGraph) : Type* :=
+abbrev Leg (G : SerreGraph) : Type* :=
   {l : G.X // IsLeg l}
-abbrev LE (G : SerreGraph) : Type* :=
-  {a : G.X // IsEdge a ∨ IsLeg a}
+abbrev Ledge (G : SerreGraph) : Type* :=
+  G.Leg ⊕ G.Edge
+
+def Ledge.val (a : G.Ledge) : G.X :=
+  match a with
+  | Sum.inl l => l.val
+  | Sum.inr e => e.val
 
 -- lean does not readily understand that vertices are indeed vertices
-def rootVertex (e : G.E) : G.V :=
+def rootVertex (e : G.Edge) : G.Vertex :=
   ⟨G.root e.val, ⟨e.val, rfl⟩⟩
 
 lemma flip_ne_flip (x : G.X) (hx : G.flip x ≠ x) :
@@ -77,10 +82,10 @@ lemma flip_ne_flip (x : G.X) (hx : G.flip x ≠ x) :
   simpa using hx.symm
 
 -- and might as well make lean understand that flipping an edge gives an edge
-def flipEdge (e : G.E) : G.E :=
+def flipEdge (e : G.Edge) : G.Edge :=
   ⟨G.flip e.val, flip_ne_flip e.val e.property⟩
 
-lemma flipEdge_invo (e : G.E) :
+lemma flipEdge_invo (e : G.Edge) :
     G.flipEdge (G.flipEdge e) = e := by
   apply Subtype.ext
   change G.flip (G.flip e.val) = e.val
@@ -88,7 +93,7 @@ lemma flipEdge_invo (e : G.E) :
   rw [G.flip_invo, id_eq]
 
 -- we prove this by inserting root into flip v and using flip_root
-lemma flip_eq_self_of_isVertex (v : G.V) :
+lemma flip_eq_self_of_isVertex (v : G.Vertex) :
     G.flip v.val = v.val := by
   have hv : G.root v.val = v.val := by
     rw [← IsVertex_iff]
@@ -100,20 +105,20 @@ lemma flip_eq_self_of_isVertex (v : G.V) :
       rw [G.flip_root]
     _ = v.val := hv
 
-abbrev OutgoingLedges (v : V G) :=
-  {a : LE G // G.root a.val = v.val}
+abbrev OutgoingLedges (v : G.Vertex) :=
+  {a : G.Ledge // G.root a.val = v.val}
 
-noncomputable def valency (v : V G) : ℕ :=
+noncomputable def valency (v : G.Vertex) : ℕ :=
   Nat.card (OutgoingLedges v)
 
 noncomputable def nvertices (G : SerreGraph) : ℕ :=
-  Nat.card (V G)
+  Nat.card (G.Vertex)
 
 noncomputable def nedges (G : SerreGraph) : ℕ :=
-  Nat.card (E G) / 2
+  Nat.card (G.Edge) / 2
 
 noncomputable def nlegs (G : SerreGraph) : ℕ :=
-  Nat.card (L G)
+  Nat.card (G.Leg)
 
 noncomputable def nledges (G : SerreGraph) : ℕ :=
   nedges G + nlegs G
@@ -122,8 +127,8 @@ noncomputable def genus (G : SerreGraph) : ℤ :=
   (nedges G : ℤ) - (nvertices G : ℤ) + 1
 
 
-def Adjacent {G : SerreGraph} (u v : V G) : Prop :=
-  ∃ e : E G,
+def Adjacent {G : SerreGraph} (u v : Vertex G) : Prop :=
+  ∃ e : Edge G,
     u = G.rootVertex e ∧
     v = G.rootVertex (G.flipEdge e)
 
@@ -134,23 +139,23 @@ instance adjacent_stdSymm : Std.Symm (@Adjacent G) where
     refine ⟨G.flipEdge e, rfl, ?_⟩
     rw [flipEdge_invo]
 
-def AreConnected {G : SerreGraph} (u v : V G) : Prop :=
+def AreConnected {G : SerreGraph} (u v : Vertex G) : Prop :=
   Relation.ReflTransGen (@Adjacent G) u v
 
-lemma neighbors_adjacent (e : E G) :
+lemma neighbors_adjacent (e : Edge G) :
     Adjacent (G.rootVertex e) (G.rootVertex (G.flipEdge e)) := by
   exact ⟨e, rfl, rfl⟩
 
-lemma connected_refl (v : G.V) :
+lemma connected_refl (v : G.Vertex) :
     AreConnected v v := by
   exact Relation.ReflTransGen.refl
 
-lemma connected_symm {u v : G.V} :
+lemma connected_symm {u v : G.Vertex} :
     AreConnected u v → AreConnected v u := by
   intro h
   exact Relation.ReflTransGen.stdSymm.symm u v h
 
-lemma connected_trans {u v w : G.V} :
+lemma connected_trans {u v w : G.Vertex} :
     AreConnected u v →
     AreConnected v w →
     AreConnected u w :=
@@ -163,7 +168,7 @@ theorem connectedEquivalence (G : SerreGraph) :
   trans := connected_trans
 
 def Connected (G : SerreGraph) : Prop :=
-  ∀ u v : G.V, AreConnected u v
+  ∀ u v : G.Vertex, AreConnected u v
 
 -- TODO
 -- update genus definition for disconnected graphs maybe, though idk if we need this
@@ -230,7 +235,7 @@ lemma Iso.right_inv (f : Iso G H) :
     f.hom.toFun ∘ f.inv.toFun = id :=
   (Classical.choose_spec f.isIso).2
 
-def fiber (f : Hom G H) (v : H.V) : SerreGraph where
+def fiber (f : Hom G H) (v : H.Vertex) : SerreGraph where
   X := {a : G.X // f a = v}
   finite := by
     let := G.finite
@@ -269,17 +274,17 @@ def fiber (f : Hom G H) (v : H.V) : SerreGraph where
 
 -- Now for defining contractions
 
-def ContractGen (e : G.E) : G.X → G.X → Prop :=
+def ContractGen (e : G.Edge) : G.X → G.X → Prop :=
   fun x y => x = G.root e.val ∧ y = G.root (G.flip e.val)
 
-def ContractSetoid (e : G.E) : Setoid G.X :=
+def ContractSetoid (e : G.Edge) : Setoid G.X :=
   Relation.EqvGen.setoid (ContractGen e)
 
-def ContractX (e : G.E) :=
+def ContractX (e : G.Edge) :=
   Quotient (ContractSetoid e)
 
 lemma respects_contract
-    (e : G.E)
+    (e : G.Edge)
     {f : G.X → G.X}
     (hf : ∀ x y, ContractGen e x y →
       ContractGen e (f x) (f y)) :
@@ -298,7 +303,7 @@ lemma respects_contract
   | trans x y z hxy hyz ihxy ihyz =>
       exact Relation.EqvGen.trans (f x) (f y) (f z) ihxy ihyz
 
-lemma root_respects_contract (e : G.E) :
+lemma root_respects_contract (e : G.Edge) :
     ∀ x y, ContractSetoid e x y →
       ContractSetoid e (G.root x) (G.root y) := by
   apply respects_contract e
@@ -310,7 +315,7 @@ lemma root_respects_contract (e : G.E) :
   · rw [hy]
     exact congrFun G.root_idem (G.flip e.val)
 
-lemma flip_respects_contract (e : G.E) :
+lemma flip_respects_contract (e : G.Edge) :
     ∀ x y, ContractSetoid e x y →
       ContractSetoid e (G.flip x) (G.flip y) := by
   apply respects_contract e
@@ -322,14 +327,14 @@ lemma flip_respects_contract (e : G.E) :
   · rw [hy]
     exact congrFun G.flip_root (G.flip e.val)
 
-def ContractRoot (e : G.E) : ContractX e → ContractX e :=
+def ContractRoot (e : G.Edge) : ContractX e → ContractX e :=
   Quotient.lift
     (Quotient.mk (ContractSetoid e) ∘ G.root)
     (by
       intro x y h
       exact Quotient.sound (root_respects_contract e x y h))
 
-def ContractFlip (e : G.E) : ContractX e → ContractX e :=
+def ContractFlip (e : G.Edge) : ContractX e → ContractX e :=
   Quotient.lift
     (Quotient.mk (ContractSetoid e) ∘ G.flip)
     (by
@@ -337,18 +342,18 @@ def ContractFlip (e : G.E) : ContractX e → ContractX e :=
       exact Quotient.sound (flip_respects_contract e x y h))
 
 @[simp]
-lemma ContractRoot_mk (e : G.E) (x : G.X) :
+lemma ContractRoot_mk (e : G.Edge) (x : G.X) :
     ContractRoot e (Quotient.mk (ContractSetoid e) x) =
       Quotient.mk (ContractSetoid e) (G.root x) := by
   rfl
 
 @[simp]
-lemma ContractFlip_mk (e : G.E) (x : G.X) :
+lemma ContractFlip_mk (e : G.Edge) (x : G.X) :
     ContractFlip e (Quotient.mk (ContractSetoid e) x) =
       Quotient.mk (ContractSetoid e) (G.flip x) := by
   rfl
 
-lemma ContractRoot_idem (e : G.E) :
+lemma ContractRoot_idem (e : G.Edge) :
     ContractRoot e ∘ ContractRoot e = ContractRoot e := by
   funext q
   refine Quotient.inductionOn q ?_
@@ -357,7 +362,7 @@ lemma ContractRoot_idem (e : G.E) :
   apply congrArg (Quotient.mk (ContractSetoid e))
   exact congrFun G.root_idem x
 
-lemma ContractFlip_invo (e : G.E) :
+lemma ContractFlip_invo (e : G.Edge) :
     ContractFlip e ∘ ContractFlip e = id := by
   funext q
   refine Quotient.inductionOn q ?_
@@ -368,7 +373,7 @@ lemma ContractFlip_invo (e : G.E) :
   apply congrArg (Quotient.mk (ContractSetoid e))
   simpa using congrFun G.flip_invo x
 
-lemma ContractFlip_root (e : G.E) :
+lemma ContractFlip_root (e : G.Edge) :
     ContractFlip e ∘ ContractRoot e = ContractRoot e := by
   funext q
   refine Quotient.inductionOn q ?_
@@ -377,7 +382,7 @@ lemma ContractFlip_root (e : G.E) :
   apply congrArg (Quotient.mk (ContractSetoid e))
   exact congrFun G.flip_root x
 
-def contractGraph (e : G.E) : SerreGraph where
+def contractGraph (e : G.Edge) : SerreGraph where
   X := ContractX e
   finite := by
     let := G.finite
@@ -391,9 +396,9 @@ def contractGraph (e : G.E) : SerreGraph where
   flip_root := ContractFlip_root e
 
 -- maybe abbrev is better than def here, but we will see
-def edgeContraction (e : G.E) := Quotient.mk (ContractSetoid e)
+def edgeContraction (e : G.Edge) := Quotient.mk (ContractSetoid e)
 
-def edgeContractionHom (e : G.E) : Hom G (G.contractGraph e) where
+def edgeContractionHom (e : G.Edge) : Hom G (G.contractGraph e) where
   toFun := edgeContraction e
   root_comm := by
     funext x
@@ -411,9 +416,29 @@ inductive IsContraction : {G H : SerreGraph} → Hom G H → Prop where
       IsIso f →
       IsContraction f
   | contract {G H : SerreGraph}
-      (e : G.E)
+      (e : G.Edge)
       (g : Hom (contractGraph e) H) :
       IsContraction g →
       IsContraction ((edgeContractionHom e).comp g)
+
+-- we also need to work with plenty of morphisms which do not contract anything
+def IsNonContracting (f : Hom G H) : Prop :=
+  --∀ e : G.X, IsEdge e → IsEdge (f e) -- also a decent version
+  ∀ e : G.Edge, IsEdge (f e)
+
+/- structure HarmonicMorphism (G H : SerreGraph) where
+  f : Hom G H
+  non_contracting : IsNonContracting f -/
+
+structure RationalFunction (G : SerreGraph) where
+  vertex_values : Vertex G → ℤ
+  leg_slopes : Leg G → ℤ
+
+def EdgeSlopes (ϕ : RationalFunction G) : Edge G → ℤ :=
+  fun e => ϕ.vertex_values (G.rootVertex (G.flipEdge e)) - ϕ.vertex_values (G.rootVertex e)
+
+def LedgeSlopes (ϕ : RationalFunction G) : Ledge G → ℤ
+  | Sum.inl l => ϕ.leg_slopes l
+  | Sum.inr e => EdgeSlopes ϕ e
 
 end SerreGraph

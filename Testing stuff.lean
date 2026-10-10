@@ -123,10 +123,6 @@ noncomputable def nlegs (G : SerreGraph) : ℕ :=
 noncomputable def nledges (G : SerreGraph) : ℕ :=
   nedges G + nlegs G
 
-noncomputable def genus (G : SerreGraph) : ℤ :=
-  (nedges G : ℤ) - (nvertices G : ℤ) + 1
-
-
 def Adjacent {G : SerreGraph} (u v : Vertex G) : Prop :=
   ∃ e : Edge G,
     u = G.rootVertex e ∧
@@ -161,7 +157,7 @@ lemma connected_trans {u v w : G.Vertex} :
     AreConnected u w :=
   Relation.ReflTransGen.trans
 
-theorem connectedEquivalence (G : SerreGraph) :
+theorem connected_equivalence (G : SerreGraph) :
     Equivalence (@AreConnected G) where
   refl := connected_refl
   symm := connected_symm
@@ -170,11 +166,23 @@ theorem connectedEquivalence (G : SerreGraph) :
 def Connected (G : SerreGraph) : Prop :=
   ∀ u v : G.Vertex, AreConnected u v
 
--- TODO
--- update genus definition for disconnected graphs maybe, though idk if we need this
+noncomputable def nComponents (G : SerreGraph) : ℕ := by
+  letI : Setoid G.Vertex :=
+    ⟨G.AreConnected, G.connected_equivalence⟩
+  letI := G.finite
+  exact Nat.card (Quotient (inferInstance : Setoid G.Vertex))
 
+noncomputable def genusInZ (G : SerreGraph) : ℤ :=
+  (nedges G : ℤ) - (nvertices G : ℤ) + nComponents G
 
--- time to define morphisms of Serre graphs, which are just map that commute with root and flip
+noncomputable def genus (G : SerreGraph) : ℕ :=
+  Int.toNat (genusInZ G)
+
+-- TODO: prove that genus = genusInZ, also it may be nice to show that genus is adds over components
+theorem genus_nonneg (G : SerreGraph) : genus G = genusInZ G := by
+  sorry
+
+-- time to define morphisms of Serre graphs, which are just maps that commute with root and flip
 
 structure Hom (G H : SerreGraph) where
   toFun : G.X → H.X
@@ -234,6 +242,16 @@ lemma Iso.left_inv (f : Iso G H) :
 lemma Iso.right_inv (f : Iso G H) :
     f.hom.toFun ∘ f.inv.toFun = id :=
   (Classical.choose_spec f.isIso).2
+
+def Hom.toVertex (f : Hom G H) : Vertex G → Vertex H :=
+  fun v => ⟨f v.val, by
+  rcases v.property with ⟨x, hx⟩
+  refine ⟨f x, ?_⟩
+  change (H.root ∘ f.toFun) x = f v.val
+  rw [← f.root_comm]
+  change f.toFun (G.root x) = f v.val
+  rw [hx]
+  rfl⟩
 
 def fiber (f : Hom G H) (v : H.Vertex) : SerreGraph where
   X := {a : G.X // f a = v}
@@ -388,7 +406,6 @@ def contractGraph (e : G.Edge) : SerreGraph where
     let := G.finite
     apply Finite.of_surjective (Quotient.mk (ContractSetoid e))
     exact Quotient.mk_surjective
-  --nonempty := ⟨Quotient.mk (ContractSetoid e) default⟩
   root := ContractRoot e
   flip := ContractFlip e
   root_idem := ContractRoot_idem e
@@ -426,9 +443,34 @@ def IsNonContracting (f : Hom G H) : Prop :=
   --∀ e : G.X, IsEdge e → IsEdge (f e) -- also a decent version
   ∀ e : G.Edge, IsEdge (f e)
 
-/- structure HarmonicMorphism (G H : SerreGraph) where
-  f : Hom G H
-  non_contracting : IsNonContracting f -/
+structure SubharmonicMorphism (G H : SerreGraph) where
+  toHom : Hom G H
+  non_contracting : IsNonContracting toHom
+  local_deg : G.Ledge → ℕ+
+
+instance : Coe (SubharmonicMorphism G H) (Hom G H) where
+  coe ϕ := ϕ.toHom
+
+noncomputable def MultiplicitiesNearVertex (ϕ : SubharmonicMorphism G H) (v : G.Vertex) :
+  H.OutgoingLedges ((ϕ : Hom G H).toVertex v) → ℕ :=
+    letI := G.finite
+    fun b =>
+      let ledgesOverb := {a' : G.OutgoingLedges v // ϕ.toHom (Ledge.val a'.val) = Ledge.val b.val}
+      letI : Fintype ledgesOverb := Fintype.ofFinite _
+      ∑ a : ledgesOverb,
+        (ϕ.local_deg a.val : ℕ)
+
+def IsHarmonicOfDeg (ϕ : SubharmonicMorphism G H) (d : ℕ+) : Prop :=
+  ∀ v : G.Vertex,
+    MultiplicitiesNearVertex ϕ v = (fun _ => d : H.OutgoingLedges ((ϕ : Hom G H).toVertex v) → ℕ)
+
+structure HarmonicMorphism (G H : SerreGraph) where
+  toSubharmonic : SubharmonicMorphism G H
+  global_deg : ℕ+
+  isHarmonic : IsHarmonicOfDeg toSubharmonic global_deg
+
+instance : Coe (HarmonicMorphism G H) (SubharmonicMorphism G H) where
+  coe ϕ := ϕ.toSubharmonic
 
 structure RationalFunction (G : SerreGraph) where
   vertex_values : Vertex G → ℤ
@@ -440,5 +482,14 @@ def EdgeSlopes (ϕ : RationalFunction G) : Edge G → ℤ :=
 def LedgeSlopes (ϕ : RationalFunction G) : Ledge G → ℤ
   | Sum.inl l => ϕ.leg_slopes l
   | Sum.inr e => EdgeSlopes ϕ e
+
+/- def splitGraph (e : G.Edge) : SerreGraph where
+  X := -- remove e and flip e and add one new vertex and four new edges
+  finite := -- added finite types
+  root := sorry
+  flip := sorry
+  root_idem := sorry
+  flip_invo := sorry
+  flip_root := sorry -/
 
 end SerreGraph

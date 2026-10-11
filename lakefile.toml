@@ -1,7 +1,7 @@
-name = "testing stuff"
+name = "tropical_geometry"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["«Testing stuff»"]
+defaultTargets = ["«TropicalGeometry»"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -15,4 +15,4 @@ scope = "leanprover-community"
 rev = "v4.35.0-rc2"
 
 [[lean_lib]]
-name = "«Testing stuff»"
+name = "«TropicalGeometry»"

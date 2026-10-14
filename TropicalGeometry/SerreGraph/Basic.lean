@@ -1,32 +1,14 @@
 import Mathlib
+/-! ... -/
 
 structure SerreGraph where
-
-  -- The ambient set in question, but doing things as a type is likely easier
   X : Type*
-  -- I like to assume my graphs are finite since infinite ones are pointless for tropical stuff
   finite : Finite X
-  -- I also like to disallow the empty graph, but fibers may be empty, so we will allow this
-  -- nonempty: Inhabited X
-
-  -- The usual Serre stuff
   root : X → X
   flip : X → X
   root_idem : root ∘ root = root
   flip_invo : flip ∘ flip = id
   flip_root : flip ∘ root = root
-  -- no_loops : ∀ x, root (flip x) = root x → flip x = x
-
-/- This somehow helps lean understand that sybtypes of G.X are finite,
-  i.e. that Finite Y checks out for any sybtype Y of G.X .
-  However, lean is much more strict on labeling things as Fintype;
-  Difference being that lean demands proofs of finiteness for that
-  and does not like to provide them automatically as a design choice,
-  which is why a lot of stuff will be marked noncomputable as soon as
-  we try to do stuff that needs to know the underlying finite sets,
-  like taking valencies.
--/
---instance (G : SerreGraph) : Inhabited G.X := G.nonempty
 
 namespace SerreGraph
 
@@ -122,31 +104,6 @@ noncomputable def nlegs (G : SerreGraph) : ℕ :=
 
 noncomputable def nledges (G : SerreGraph) : ℕ :=
   nedges G + nlegs G
-
-
-
-
-
--- time to define morphisms of Serre graphs, which are just maps that commute with root and flip
-
--- Now for defining contractions
-
-
-
-
-
-
-
-structure RationalFunction (G : SerreGraph) where
-  vertex_values : Vertex G → ℤ
-  leg_slopes : Leg G → ℤ
-
-def EdgeSlopes (ϕ : RationalFunction G) : Edge G → ℤ :=
-  fun e => ϕ.vertex_values (G.rootVertex (G.flipEdge e)) - ϕ.vertex_values (G.rootVertex e)
-
-def LedgeSlopes (ϕ : RationalFunction G) : Ledge G → ℤ
-  | Sum.inl l => ϕ.leg_slopes l
-  | Sum.inr e => EdgeSlopes ϕ e
 
 /- def splitGraph (e : G.Edge) : SerreGraph where
   X := -- remove e and flip e and add one new vertex and four new edges

@@ -1,8 +1,17 @@
 import TropicalGeometry.SerreGraph.Basic
 import TropicalGeometry.SerreGraph.DisjointUnion
+import TropicalGeometry.Util.Relation
 /-! ... -/
 
 namespace SerreGraph
+
+/- def DisjointUnionGraph (G H : SerreGraph) : SerreGraph where
+  X := Sum G.X H.X
+  finite := by
+    let := G.finite
+    let := H.finite
+    infer_instance
+  root :=  -/
 
 structure PointedSerreGraph where
   graph : SerreGraph
@@ -25,10 +34,28 @@ def WedgeSumSetoid (G H : PointedSerreGraph) : Setoid (DisjointUnionX G H) :=
 def WedgeSumX (G H : PointedSerreGraph) :=
   Quotient (WedgeSumSetoid G H)
 
+lemma respects_gluing
+    {G H : PointedSerreGraph}
+    {f : DisjointUnionX G H → DisjointUnionX G H}
+    (hf : ∀ x y, WedgeSumGen G H x y →
+      WedgeSumGen G H (f x) (f y)) :
+    ∀ x y, WedgeSumSetoid G H x y →
+      WedgeSumSetoid G H (f x) (f y) := by
+  apply Relation.respects_eqvGen_setoid
+    (WedgeSumGen G H) (WedgeSumSetoid G H) ?_ hf
+  rfl
+
+/- lemma root_respects_gluing (G H : PointedSerreGraph) :
+    ∀ x y, WedgeSumSetoid G H x y →
+      WedgeSumSetoid G H ((DisjointUnion G H).root x) (G.root y) := by
+  apply respects_gluing G H
+  intro x y h -/
+
 def WedgeSumRoot (G H : PointedSerreGraph) : (WedgeSumX G H) → (WedgeSumX G H) :=
   Quotient.lift
     (Quotient.mk (WedgeSumSetoid G H) ∘ (disjointUnion G.graph H.graph).root)
-    (by sorry)
+    (by sorry
+    )
 
 def WedgeSumFlip (G H : PointedSerreGraph) : (WedgeSumX G H) → (WedgeSumX G H) :=
   Quotient.lift

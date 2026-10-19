@@ -48,3 +48,23 @@ def disjointUnion (G H : SerreGraph) : SerreGraph where
     · rw [Sum.inr.inj_iff]
       change (H.flip ∘ H.root) _ = H.root _
       rw [H.flip_root]
+
+lemma disjointUnion_inl_isVertex
+    (G H : SerreGraph) (v : G.X)
+    (hv : G.IsVertex v) :
+    (disjointUnion G H).IsVertex (Sum.inl v) := by
+  change ∃ a, (disjointUnion G H).root a = Sum.inl v
+  obtain ⟨a, ha⟩ := hv
+  refine ⟨Sum.inl a, ?_⟩
+  change Sum.inl (G.root a) = Sum.inl v
+  rw [ha]
+
+lemma disjointUnion_inr_isVertex
+    (G H : SerreGraph) (v : H.X)
+    (hv : H.IsVertex v) :
+    (disjointUnion G H).IsVertex (Sum.inr v) := by
+  change ∃ a, (disjointUnion G H).root a = Sum.inr v
+  obtain ⟨a, ha⟩ := hv
+  refine ⟨Sum.inr a, ?_⟩
+  change Sum.inr (H.root a) = Sum.inr v
+  rw [ha]

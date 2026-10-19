@@ -1,5 +1,6 @@
 import TropicalGeometry.SerreGraph.Basic
 import TropicalGeometry.SerreGraph.Hom
+import TropicalGeometry.Util.Relation
 /-! ... -/
 
 namespace SerreGraph
@@ -22,18 +23,9 @@ lemma respects_contract
       ContractGen e (f x) (f y)) :
     ∀ x y, ContractSetoid e x y →
       ContractSetoid e (f x) (f y) := by
-  intro x y h
-  change Relation.EqvGen (ContractGen e) x y at h
-  change Relation.EqvGen (ContractGen e) (f x) (f y)
-  induction h with
-  | rel x y hxy =>
-      exact Relation.EqvGen.rel (f x) (f y) (hf x y hxy)
-  | refl x =>
-      exact Relation.EqvGen.refl (f x)
-  | symm x y hxy ih =>
-      exact Relation.EqvGen.symm (f x) (f y) ih
-  | trans x y z hxy hyz ihxy ihyz =>
-      exact Relation.EqvGen.trans (f x) (f y) (f z) ihxy ihyz
+  apply Relation.respects_eqvGen_setoid
+    (ContractGen e) (ContractSetoid e) ?_ hf
+  rfl
 
 lemma root_respects_contract (e : G.Edge) :
     ∀ x y, ContractSetoid e x y →
@@ -60,18 +52,14 @@ lemma flip_respects_contract (e : G.Edge) :
     exact congrFun G.flip_root (G.flip e.val)
 
 def ContractRoot (e : G.Edge) : ContractX e → ContractX e :=
-  Quotient.lift
-    (Quotient.mk (ContractSetoid e) ∘ G.root)
-    (by
-      intro x y h
-      exact Quotient.sound (root_respects_contract e x y h))
+  Relation.liftQuotient
+    (ContractSetoid e) G.root
+    (root_respects_contract e)
 
 def ContractFlip (e : G.Edge) : ContractX e → ContractX e :=
-  Quotient.lift
-    (Quotient.mk (ContractSetoid e) ∘ G.flip)
-    (by
-      intro x y h
-      exact Quotient.sound (flip_respects_contract e x y h))
+  Relation.liftQuotient
+    (ContractSetoid e) G.flip
+    (flip_respects_contract e)
 
 @[simp]
 lemma ContractRoot_mk (e : G.Edge) (x : G.X) :
@@ -101,7 +89,7 @@ lemma ContractFlip_invo (e : G.Edge) :
   intro x
   change ContractFlip e (ContractFlip e (Quotient.mk (ContractSetoid e) x))
       = Quotient.mk (ContractSetoid e) x
-  rw [ContractFlip_mk, ContractFlip_mk]
+  rw [ContractFlip_mk]
   apply congrArg (Quotient.mk (ContractSetoid e))
   simpa using congrFun G.flip_invo x
 

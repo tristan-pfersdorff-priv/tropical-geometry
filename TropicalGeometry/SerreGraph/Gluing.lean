@@ -24,7 +24,7 @@ def WedgeSumGen (G H : PointedSerreGraph) :
 def WedgeSumSetoid (G H : PointedSerreGraph) : Setoid (DisjointUnionX G H) :=
   Relation.EqvGen.setoid (WedgeSumGen G H)
 
-def WedgeSumX (G H : PointedSerreGraph) :=
+abbrev WedgeSumX (G H : PointedSerreGraph) :=
   Quotient (WedgeSumSetoid G H)
 
 lemma respects_gluing
@@ -84,8 +84,6 @@ lemma flip_respects_gluing (G H : PointedSerreGraph) :
         G.graph H.graph H.point.val H.point.property
     exact (disjointUnion G.graph H.graph).flip_eq_self_of_isVertex ⟨Sum.inr H.point, hvertex⟩
 
--- flip_eq_self_of_isVertex
-
 def WedgeSumRoot (G H : PointedSerreGraph) : (WedgeSumX G H) → (WedgeSumX G H) :=
   Relation.liftQuotient
     (WedgeSumSetoid G H)
@@ -99,13 +97,13 @@ def WedgeSumFlip (G H : PointedSerreGraph) : (WedgeSumX G H) → (WedgeSumX G H)
     (flip_respects_gluing G H)
 
 @[simp]
-lemma WedgeSumRoot_mk (G H : PointedSerreGraph) (x : (disjointUnion G.graph H.graph).X) :
+lemma WedgeSumRoot_mk (G H : PointedSerreGraph) (x : DisjointUnionX G H) :
     WedgeSumRoot G H (Quotient.mk (WedgeSumSetoid G H) x) =
       Quotient.mk (WedgeSumSetoid G H) ((disjointUnion G.graph H.graph).root x) := by
   rfl
 
 @[simp]
-lemma WedgeSumFlip_mk (G H : PointedSerreGraph) (x : (disjointUnion G.graph H.graph).X) :
+lemma WedgeSumFlip_mk (G H : PointedSerreGraph) (x : DisjointUnionX G H) :
     WedgeSumFlip G H (Quotient.mk (WedgeSumSetoid G H) x) =
       Quotient.mk (WedgeSumSetoid G H) ((disjointUnion G.graph H.graph).flip x) := by
   rfl
@@ -139,7 +137,7 @@ lemma WedgeSumFlip_root (G H : PointedSerreGraph) :
   apply congrArg (Quotient.mk (WedgeSumSetoid G H))
   exact congrFun (disjointUnion G.graph H.graph).flip_root x
 
-def wedgeSum (G H : PointedSerreGraph) : SerreGraph where
+def wedgeSumGraph (G H : PointedSerreGraph) : SerreGraph where
   X := WedgeSumX G H
   finite := by
     let := (disjointUnion G.graph H.graph).finite
@@ -151,10 +149,70 @@ def wedgeSum (G H : PointedSerreGraph) : SerreGraph where
   flip_invo := WedgeSumFlip_invo G H
   flip_root := WedgeSumFlip_root G H
 
-def glueImageGraph (G : PointedSerreGraph) (H : SerreGraph) (ϕ : Hom G.graph H) : PointedSerreGraph :=
-  wedgeSum G
-  (PointedSerreGraph where
+def wedgeSum (G H : PointedSerreGraph) : PointedSerreGraph where
+  graph := wedgeSumGraph G H
+  point := by
+    let pval :=
+      Quotient.mk (WedgeSumSetoid G H) (Sum.inl G.point.val)
+    refine ⟨pval, ?_⟩
+    have hvertex :=
+      disjointUnion_inl_isVertex
+        G.graph H.graph G.point.val G.point.property
+    have root_fix_in_sum :=
+      (disjointUnion G.graph H.graph).IsVertex_iff
+        (Sum.inl G.point.val) |>.mp hvertex
+    have root_fix_in_wedge_sum :
+      (wedgeSumGraph G H).root pval = pval := by
+      unfold pval
+      change (WedgeSumRoot G H) ⟦Sum.inl ↑G.point⟧ = ⟦Sum.inl ↑G.point⟧
+      rw [WedgeSumRoot_mk G H (Sum.inl G.point.val), root_fix_in_sum]
+      rfl
+    exact (wedgeSumGraph G H).IsVertex_iff
+      pval |>.mpr root_fix_in_wedge_sum
+
+def wedgeSumMap
+    (ϕ : G.graph.Hom K)
+    (ψ : H.graph.Hom K)
+    (hpoint : ϕ G.point.val = ψ H.point.val) :
+    WedgeSumX G H → K.X :=
+  Quotient.lift
+  (
+    fun x =>
+    match x with
+    | Sum.inl xl => ϕ xl
+    | Sum.inr xr => ψ xr
+  )
+  (
+    by
+    apply Relation.eqvGen_map_to_set
+    intro x y h
+    simp only [h.left, h.right]
+    exact hpoint
+  )
+
+def wedgeSumHom
+    (ϕ : G.graph.Hom K)
+    (ψ : H.graph.Hom K)
+    (hpoint : ϕ G.point.val = ψ H.point.val) :
+    (wedgeSum G H).graph.Hom K where
+  toFun := wedgeSumMap ϕ ψ hpoint
+  root_comm := by
+    -- Quotient induction, then cases on the Sum.
+    sorry
+  flip_comm := by
+    -- Quotient induction, then cases on the Sum.
+    sorry
+
+def glueImage (G : PointedSerreGraph) (H : SerreGraph) (ϕ : Hom G.graph H) :
+    PointedSerreGraph :=
+  let Hpointed : PointedSerreGraph := {
     graph := H
-    point := ϕ.toVertex G.point)
+    point := ϕ.toVertex G.point
+ }
+  wedgeSum G Hpointed
+
+def glueImageHom (G : PointedSerreGraph) (H : SerreGraph) (ϕ : Hom G.graph H) :
+    Hom (glueImage G H ϕ).graph H :=
+    wedgeSumHom ϕ (Hom.id H) (by rfl)
 
 end SerreGraph

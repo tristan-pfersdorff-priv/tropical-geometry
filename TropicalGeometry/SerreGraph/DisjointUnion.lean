@@ -1,18 +1,21 @@
 import TropicalGeometry.SerreGraph.Basic
 /-! ... -/
 
+abbrev DisjointUnionX (G H : SerreGraph) :=
+  Sum G.X H.X
+
 def disjointUnionRoot (G H : SerreGraph) :
-    Sum G.X H.X → Sum G.X H.X
+    DisjointUnionX G H → DisjointUnionX G H
   | Sum.inl x => Sum.inl (G.root x)
   | Sum.inr y => Sum.inr (H.root y)
 
 def disjointUnionFlip (G H : SerreGraph) :
-    Sum G.X H.X → Sum G.X H.X
+    DisjointUnionX G H → DisjointUnionX G H
   | Sum.inl x => Sum.inl (G.flip x)
   | Sum.inr y => Sum.inr (H.flip y)
 
 def disjointUnion (G H : SerreGraph) : SerreGraph where
-  X := Sum G.X H.X
+  X := DisjointUnionX G H
   finite := by
     let := G.finite
     let := H.finite

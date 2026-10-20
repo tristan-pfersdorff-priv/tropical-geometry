@@ -14,13 +14,31 @@ lemma eqvGen_map
   intro x y h
   induction h with
   | rel x y hxy =>
-      exact Relation.EqvGen.rel (f x) (f y) (hf x y hxy)
+    exact Relation.EqvGen.rel (f x) (f y) (hf x y hxy)
   | refl x =>
-      exact Relation.EqvGen.refl (f x)
+    exact Relation.EqvGen.refl (f x)
   | symm x y hxy ih =>
-      exact Relation.EqvGen.symm (f x) (f y) ih
+    exact Relation.EqvGen.symm (f x) (f y) ih
   | trans x y z hxy hyz ihxy ihyz =>
-      exact Relation.EqvGen.trans (f x) (f y) (f z) ihxy ihyz
+    exact Relation.EqvGen.trans (f x) (f y) (f z) ihxy ihyz
+
+-- mathematically, this is a special case of the above lemma with the discrete setoid as target
+lemma eqvGen_map_to_set
+    {α β : Type*}
+    (r : α → α → Prop)
+    (f : α → β)
+    (hf : ∀ x y, r x y → f x = f y) :
+    ∀ x y, Relation.EqvGen r x y →
+      f x = f y := by
+  intro x y h
+  induction h with
+  | rel x y hxy =>
+    exact (hf x y hxy)
+  | refl x => rfl
+  | symm x y hxy ih =>
+    exact Eq.symm ih
+  | trans x y z hxy hyz ihxy ihyz =>
+    exact Eq.trans ihxy ihyz
 
 lemma respects_eqvGen
     {α : Type*}

@@ -1,4 +1,5 @@
 import TropicalGeometry.SerreGraph.Basic
+import TropicalGeometry.SerreGraph.Hom
 /-! ... -/
 
 abbrev DisjointUnionX (G H : SerreGraph) :=
@@ -6,13 +7,13 @@ abbrev DisjointUnionX (G H : SerreGraph) :=
 
 def disjointUnionRoot (G H : SerreGraph) :
     DisjointUnionX G H → DisjointUnionX G H
-  | Sum.inl x => Sum.inl (G.root x)
-  | Sum.inr y => Sum.inr (H.root y)
+  | Sum.inl xl => Sum.inl (G.root xl)
+  | Sum.inr xr => Sum.inr (H.root xr)
 
 def disjointUnionFlip (G H : SerreGraph) :
     DisjointUnionX G H → DisjointUnionX G H
-  | Sum.inl x => Sum.inl (G.flip x)
-  | Sum.inr y => Sum.inr (H.flip y)
+  | Sum.inl xl => Sum.inl (G.flip xl)
+  | Sum.inr xr => Sum.inr (H.flip xr)
 
 def disjointUnion (G H : SerreGraph) : SerreGraph where
   X := DisjointUnionX G H
@@ -71,3 +72,9 @@ lemma disjointUnion_inr_isVertex
   refine ⟨Sum.inr a, ?_⟩
   change Sum.inr (H.root a) = Sum.inr v
   rw [ha]
+
+def disjointUnionMap {G H K : SerreGraph} (ϕ : G.Hom K) (ψ : H.Hom K) :=
+  fun x =>
+      match x with
+      | Sum.inl xl => ϕ xl
+      | Sum.inr xr => ψ xr

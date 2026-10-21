@@ -175,15 +175,7 @@ def wedgeSumMap
     (ψ : H.graph.Hom K)
     (hpoint : ϕ G.point.val = ψ H.point.val) :
     WedgeSumX G H → K.X :=
-  Quotient.lift
-  (
-    fun x =>
-    match x with
-    | Sum.inl xl => ϕ xl
-    | Sum.inr xr => ψ xr
-  )
-  (
-    by
+  Quotient.lift (disjointUnionMap ϕ ψ) (by
     apply Relation.eqvGen_map_to_set
     intro x y h
     simp only [h.left, h.right]
@@ -197,11 +189,43 @@ def wedgeSumHom
     (wedgeSum G H).graph.Hom K where
   toFun := wedgeSumMap ϕ ψ hpoint
   root_comm := by
-    -- Quotient induction, then cases on the Sum.
-    sorry
+    funext q
+    refine Quotient.inductionOn q ?_
+    intro x
+    change (wedgeSumMap ϕ ψ hpoint) (WedgeSumRoot G H ⟦x⟧) = K.root (wedgeSumMap ϕ ψ hpoint ⟦x⟧)
+    rw [WedgeSumRoot_mk]
+    unfold wedgeSumMap
+    change disjointUnionMap ϕ ψ ((disjointUnionRoot G.graph H.graph) x) =
+      K.root ((disjointUnionMap ϕ ψ) x)
+    unfold disjointUnionMap disjointUnionRoot
+    cases x with
+      | inl xl =>
+        change (ϕ.toFun ∘ G.graph.root) xl = (K.root ∘ ϕ) xl
+        rw [ϕ.root_comm]
+        rfl
+      | inr xr =>
+        change (ψ.toFun ∘ H.graph.root) xr = (K.root ∘ ψ) xr
+        rw [ψ.root_comm]
+        rfl
   flip_comm := by
-    -- Quotient induction, then cases on the Sum.
-    sorry
+    funext q
+    refine Quotient.inductionOn q ?_
+    intro x
+    change (wedgeSumMap ϕ ψ hpoint) (WedgeSumFlip G H ⟦x⟧) = K.flip (wedgeSumMap ϕ ψ hpoint ⟦x⟧)
+    rw [WedgeSumFlip_mk]
+    unfold wedgeSumMap
+    change disjointUnionMap ϕ ψ ((disjointUnionFlip G.graph H.graph) x) =
+      K.flip ((disjointUnionMap ϕ ψ) x)
+    unfold disjointUnionMap disjointUnionFlip
+    cases x with
+      | inl xl =>
+        change (ϕ.toFun ∘ G.graph.flip) xl = (K.flip ∘ ϕ) xl
+        rw [ϕ.flip_comm]
+        rfl
+      | inr xr =>
+        change (ψ.toFun ∘ H.graph.flip) xr = (K.flip ∘ ψ) xr
+        rw [ψ.flip_comm]
+        rfl
 
 def glueImage (G : PointedSerreGraph) (H : SerreGraph) (ϕ : Hom G.graph H) :
     PointedSerreGraph :=
